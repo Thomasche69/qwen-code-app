@@ -77,7 +77,7 @@ with st.sidebar:
 
 @st.cache_resource
 def init_chat_engine():
-    base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    base_url = "https://qwen-code.streamlit.app/"
     try:
         # Test connection and model availability
         response = requests.post(
