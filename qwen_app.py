@@ -109,6 +109,13 @@ def generate_ai_response(prompt_chain):
     logging.debug(f"Raw model response: {response}")
     return response
 
+def safe_parse_json(data):
+    try:
+        return json.loads(data)
+    except json.JSONDecodeError as e:
+        logging.error(f"JSONDecodeError: {e}")
+        return None
+
 
 def build_prompt_chain():
     prompt_sequence = [system_prompt]
@@ -126,7 +133,10 @@ if user_query:
     # Generate AI response
     with st.spinner("🧠 Processing..."):
         prompt_chain = build_prompt_chain()
-        ai_response = generate_ai_response(prompt_chain)
+        raw_response = generate_ai_response(prompt_chain)
+        response = safe_parse_json(raw_response)
+        if response is None:
+            st.error("The model returned an invalid response. Please try again later.")
     
     # Add AI response to log
     st.session_state.message_log.append({"role": "ai", "content": ai_response})
