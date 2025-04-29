@@ -1,6 +1,11 @@
+import os
 import streamlit as st
 from langchain_ollama import ChatOllama
 from langchain_core.output_parsers import StrOutputParser
+import requests
+from requests.exceptions import RequestException
+import json
+from json.decoder import JSONDecodeError
 
 from langchain_core.prompts import (
     SystemMessagePromptTemplate,
@@ -70,14 +75,40 @@ with st.sidebar:
 
 # initiate the chat engine
 
-llm_engine=ChatOllama(
-    model=selected_model,
-    base_url="https://qwen-code.streamlit.app/",
+@st.cache_resource
+def init_chat_engine():
+    base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    try:
+        # Test connection and model availability
+        response = requests.post(
+            f"{base_url}/api/tags",
+            timeout=5
+        )
+        response.raise_for_status()  # Raise exception for bad status codes
+        
+        # Verify JSON response
+        try:
+            models = response.json()
+        except JSONDecodeError:
+            st.error("⚠️ Invalid response from Ollama service")
+            return None
+            
+        # Initialize chat engine
+        return ChatOllama(
+            model=selected_model,
+            base_url=base_url,
+            temperature=0.3,
+            timeout=30  # Add timeout for API calls
+        )
+    except RequestException as e:
+        st.error(f"⚠️ Connection error: {str(e)}")
+        return None
+    except Exception as e:
+        st.error(f"⚠️ Error initializing chat engine: {str(e)}")
+        return None
 
-    temperature=0.3
-
-)
-
+# Initialize the chat engine
+llm_engine = init_chat_engine()
 # System prompt configuration
 system_prompt = SystemMessagePromptTemplate.from_template(
     "You are an expert AI coding assistant. Provide concise, correct solutions "
@@ -101,8 +132,23 @@ with chat_container:
 user_query = st.chat_input("Type your coding question here...")
 
 def generate_ai_response(prompt_chain):
-    processing_pipeline=prompt_chain | llm_engine | StrOutputParser()
-    return processing_pipeline.invoke({})
+    try:
+        if llm_engine is None:
+            return "⚠️ Chat engine is not initialized. Please check if Ollama service is running."
+        
+        processing_pipeline = prompt_chain | llm_engine | StrOutputParser()
+        response = processing_pipeline.invoke({})
+        
+        # Validate response
+        if not response or not isinstance(response, str):
+            return "⚠️ Invalid response from the model"
+            
+        return response
+        
+    except JSONDecodeError:
+        return "⚠️ Error: Received invalid response from Ollama"
+    except Exception as e:
+        return f"⚠️ Error generating response: {str(e)}"
 
 
 def build_prompt_chain():
