@@ -1,6 +1,7 @@
 import streamlit as st
 from langchain_ollama import ChatOllama
 from langchain_core.output_parsers import StrOutputParser
+import logging
 
 from langchain_core.prompts import (
     SystemMessagePromptTemplate,
@@ -8,6 +9,8 @@ from langchain_core.prompts import (
 )
 
 from langchain_core.messages import HumanMessage, AIMessage
+logging.basicConfig(level=logging.DEBUG)
+
 # Custom CSS styling
 st.markdown("""
 <style>
@@ -101,8 +104,10 @@ with chat_container:
 user_query = st.chat_input("Type your coding question here...")
 
 def generate_ai_response(prompt_chain):
-    processing_pipeline=prompt_chain | llm_engine | StrOutputParser()
-    return processing_pipeline.invoke({})
+    processing_pipeline = prompt_chain | llm_engine | StrOutputParser()
+    response = processing_pipeline.invoke({})
+    logging.debug(f"Raw model response: {response}")
+    return response
 
 
 def build_prompt_chain():
